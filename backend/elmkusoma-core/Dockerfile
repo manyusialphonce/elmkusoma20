@@ -1,20 +1,14 @@
 
-FROM eclipse-temurin:21-jdk AS build
-
-RUN apt-get update && apt-get install -y --no-install-recommends bash \
-    && rm -rf /var/lib/apt/lists/*
+FROM maven:3.9.9-eclipse-temurin-21 AS build
 
 WORKDIR /app
 
 COPY pom.xml .
-COPY .mvn .mvn
-COPY mvnw .
-
-RUN chmod +x mvnw && bash ./mvnw dependency:go-offline -B
+RUN mvn -B dependency:go-offline
 
 COPY src ./src
 
-RUN bash ./mvnw clean package -DskipTests -B
+RUN mvn -B clean package -DskipTests
 
 FROM eclipse-temurin:21-jre
 
