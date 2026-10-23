@@ -1,3 +1,4 @@
+
 #!/bin/sh
 # ----------------------------------------------------------------------------
 # Licensed to the Apache Software Foundation (ASF) under one
@@ -70,13 +71,13 @@ fi
 
 # hash string like 23409234092340923409234092340923409
 hash_string() {
-  str="${1:-}" h=09
+  str="${1:-}" h=0
   while [ -n "$str" ]; do
     char="${str%"${str#?}"}"
     h=$(((h * 31 + $(LC_CTYPE=C printf %d "'$char")) % 4294967296))
     str="${str#?}"
   done
-  printf %x\\n $h
+  printf '%x\n' "$h"
 }
 
 verbose() { :; }
@@ -93,7 +94,7 @@ trim() {
   printf "%s" "${1}" | tr -d '[:space:]'
 }
 
-# parse distributionUrl and optional distributionSha256Sum, requires .teledata/teledata/teledata/teledata-wrapper.properties
+# parse distributionUrl and optional distributionSha256Sum, requires .mvn/wrapper/maven-wrapper.properties
 while IFS="=" read -r key value; do
   case "${key-}" in
   distributionUrl) distributionUrl=$(trim "${value-}") ;;
@@ -182,7 +183,7 @@ if [ -f "$TMP_DOWNLOAD_DIR/$distributionName.zip" ]; then
     elif [ "$distributionSha256Sum" = "$(shasum -a 256 "$TMP_DOWNLOAD_DIR/$distributionName.zip" | cut -d ' ' -f 1)" ]; then
       distributionSha256Result=true
     fi
-    if [ $distributionSha256Result = false ]; then
+    if [ "$distributionSha256Result" = false ]; then
       die "error: failed to verify the SHA-256 sum for the Maven distribution"
     fi
   fi
