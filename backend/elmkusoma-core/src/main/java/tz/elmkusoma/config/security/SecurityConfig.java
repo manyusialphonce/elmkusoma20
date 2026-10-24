@@ -7,10 +7,8 @@ import org.springframework.core.Ordered;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
-import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -28,7 +26,6 @@ import tz.elmkusoma.shared.repository.InstitutionMembershipRepository;
 import tz.elmkusoma.shared.repository.UserRepository;
 
 import java.util.List;
-
 
 @Configuration
 @EnableWebSecurity
@@ -67,17 +64,21 @@ public class SecurityConfig {
 
     @Bean
     public JwtAuthenticationFilter jwtAuthenticationFilter() {
-        return new JwtAuthenticationFilter(jwtTokenProvider, userDetailsService(), userRepository);
+        return new JwtAuthenticationFilter(
+                jwtTokenProvider, userDetailsService(), userRepository);
     }
 
     @Bean
-    public AuthRateLimitFilter authRateLimitFilter(ClientIpResolver clientIpResolver) {
+    public AuthRateLimitFilter authRateLimitFilter(
+            ClientIpResolver clientIpResolver) {
         return new AuthRateLimitFilter(rateLimitService, clientIpResolver);
     }
 
     @Bean
-    public FilterRegistrationBean<AuthRateLimitFilter> authRateLimitFilterRegistration(AuthRateLimitFilter filter) {
-        FilterRegistrationBean<AuthRateLimitFilter> registration = new FilterRegistrationBean<>();
+    public FilterRegistrationBean<AuthRateLimitFilter>
+    authRateLimitFilterRegistration(AuthRateLimitFilter filter) {
+        FilterRegistrationBean<AuthRateLimitFilter> registration =
+                new FilterRegistrationBean<>();
         registration.setFilter(filter);
         registration.setEnabled(false);
         return registration;
@@ -85,35 +86,48 @@ public class SecurityConfig {
 
     @Bean
     public JwtRequestAttributeFilter jwtRequestAttributeFilter() {
-        return new JwtRequestAttributeFilter(jwtTokenProvider, userRepository, membershipRepository);
+        return new JwtRequestAttributeFilter(
+                jwtTokenProvider, userRepository, membershipRepository);
     }
 
     @Bean
     public OrganizationContextResolver organizationContextResolver() {
-        return new OrganizationContextResolver(jwtTokenProvider, userRepository, membershipRepository, contextHolder, entityManager, permissionService);
+        return new OrganizationContextResolver(
+                jwtTokenProvider,
+                userRepository,
+                membershipRepository,
+                contextHolder,
+                entityManager,
+                permissionService);
     }
 
     /**
-     * Same standalone-registration guard as the JWT filters: the resolver is
-     * already wired into the security chain via addFilterBefore; a second
-     * servlet-container registration would run it pre-chain (unauthenticated,
-     * no-op) and OncePerRequestFilter would then skip the in-chain execution,
-     * leaving every request without an organization context.
+     * The resolver is already wired into the security chain.
+     * Disable separate servlet-container registration to prevent
+     * it from running before authentication.
      */
     @Bean
-    public FilterRegistrationBean<OrganizationContextResolver> organizationContextResolverFilterRegistration(OrganizationContextResolver filter) {
-        FilterRegistrationBean<OrganizationContextResolver> registration = new FilterRegistrationBean<>();
+    public FilterRegistrationBean<OrganizationContextResolver>
+    organizationContextResolverFilterRegistration(
+            OrganizationContextResolver filter) {
+        FilterRegistrationBean<OrganizationContextResolver> registration =
+                new FilterRegistrationBean<>();
         registration.setFilter(filter);
         registration.setEnabled(false);
         return registration;
     }
 
     @Bean
-    public org.springframework.security.core.userdetails.UserDetailsService userDetailsService() {
+    public org.springframework.security.core.userdetails.UserDetailsService
+    userDetailsService() {
         return email -> {
-            tz.elmkusoma.shared.domain.User user = userRepository.findByEmailAndIsDeletedFalse(email)
-                    .orElseThrow(() -> new org.springframework.security.core.userdetails.UsernameNotFoundException(
-                            "User not found with email: " + email));
+            tz.elmkusoma.shared.domain.User user =
+                    userRepository.findByEmailAndIsDeletedFalse(email)
+                            .orElseThrow(() ->
+                                    new org.springframework.security.core.userdetails
+                                            .UsernameNotFoundException(
+                                            "User not found with email: " + email));
+
             return org.springframework.security.core.userdetails.User.builder()
                     .username(user.getEmail())
                     .password(user.getPasswordHash())
@@ -123,40 +137,38 @@ public class SecurityConfig {
     }
 
     /**
-     * Guard against servlet-container auto-registration of the JWT filters.
-     * Without this guard the filter also runs standalone before the security
-     * chain; OncePerRequestFilter then skips the in-chain invocation (same
-     * already-filtered attribute), the chain's SecurityContextRepository load
-     * wipes the standalone authentication, and every authenticated endpoint
-     * returns 403. The filters must run only inside the security chain.
-     * (Regression guard restored: 12807f0 -> 95f2cda -> removed in 046250a.)
+     * Prevent servlet-container auto-registration of JWT filters.
+     * These filters must run only inside the Spring Security chain.
      */
     @Bean
-    public FilterRegistrationBean<JwtAuthenticationFilter> jwtFilterRegistration(JwtAuthenticationFilter filter) {
-        FilterRegistrationBean<JwtAuthenticationFilter> registration = new FilterRegistrationBean<>();
+    public FilterRegistrationBean<JwtAuthenticationFilter>
+    jwtFilterRegistration(JwtAuthenticationFilter filter) {
+        FilterRegistrationBean<JwtAuthenticationFilter> registration =
+                new FilterRegistrationBean<>();
         registration.setFilter(filter);
         registration.setEnabled(false);
         return registration;
     }
 
     @Bean
-    public FilterRegistrationBean<JwtRequestAttributeFilter> jwtRequestFilterRegistration(JwtRequestAttributeFilter filter) {
-        FilterRegistrationBean<JwtRequestAttributeFilter> registration = new FilterRegistrationBean<>();
+    public FilterRegistrationBean<JwtRequestAttributeFilter>
+    jwtRequestFilterRegistration(JwtRequestAttributeFilter filter) {
+        FilterRegistrationBean<JwtRequestAttributeFilter> registration =
+                new FilterRegistrationBean<>();
         registration.setFilter(filter);
         registration.setEnabled(false);
         return registration;
     }
 
     /**
-     * Correlation id filter. Unlike the JWT filters this one is deliberately registered
-     * standalone and kept out of the security chain: it has to cover the chain's own
-     * logging and requests that never reach authentication, and because it is not a
-     * bean of type {@code Filter} the container cannot register it a second time.
-     * Order +1 puts it after the encoding filter and ahead of the security chain (-100).
+     * Register the correlation filter before the security chain so
+     * request IDs are available even for rejected requests.
      */
     @Bean
-    public FilterRegistrationBean<RequestCorrelationFilter> requestCorrelationFilterRegistration() {
-        FilterRegistrationBean<RequestCorrelationFilter> registration = new FilterRegistrationBean<>();
+    public FilterRegistrationBean<RequestCorrelationFilter>
+    requestCorrelationFilterRegistration() {
+        FilterRegistrationBean<RequestCorrelationFilter> registration =
+                new FilterRegistrationBean<>();
         registration.setFilter(new RequestCorrelationFilter());
         registration.addUrlPatterns("/*");
         registration.setOrder(Ordered.HIGHEST_PRECEDENCE + 1);
@@ -177,70 +189,86 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http)
+            throws Exception {
         http
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .cors(cors ->
+                        cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(
+                                SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // Self-service password change resolves the caller from the
-                        // authenticated principal, so it must never be reachable
-                        // anonymously. Declared before the /v1/auth/** permitAll
-                        // below (first match wins); every other /v1/auth route
-                        // stays public exactly as before.
-                        .requestMatchers(org.springframework.http.HttpMethod.POST, "/v1/auth/change-password").authenticated()
-                .requestMatchers(PUBLIC_URLS).permitAll()
-                // Invitation activation is the one /v1/admin area that must be reachable without
-                // a session: the recipient has no account yet, which is precisely when they
-                // activate. Activation is two steps — an invitation token (single-use, bound to
-                // one row, expiring) then a code mailed to the invited address — so knowing the
-                // token is not enough on its own. Scoped to POST on the two exact paths so the
-                // listing and cancellation routes around them stay behind the admin fence below.
-                .requestMatchers(org.springframework.http.HttpMethod.POST, "/v1/admin/people/invitations/activate")
-                                .permitAll()
-                .requestMatchers(org.springframework.http.HttpMethod.POST, "/v1/admin/people/invitations/confirm")
-                                .permitAll()
-                .requestMatchers(ADMIN_ONLY_URLS).hasRole("ADMIN")
-                        // Namespace fences mirroring the class-level @PreAuthorize of the
-                        // /v1/admin and /v1/platform-admin controllers, enforced at the URL
-                        // level so role denials return 403 before body validation (400) or
-                        // unmapped-route handling (404) can mask them.
-                        // §9/§10: /v1/admin is the organization-scoped stack — Institution Admin
-                        // AND Provider Admin operate their own organization through it; platform
-                        // governance stays behind /v1/platform-admin (ADMIN only).
+                        // Password changes require an authenticated caller.
+                        .requestMatchers(
+                                org.springframework.http.HttpMethod.POST,
+                                "/v1/auth/change-password")
+                        .authenticated()
+
+                        .requestMatchers(PUBLIC_URLS).permitAll()
+
+                        // Public invitation activation endpoints.
+                        .requestMatchers(
+                                org.springframework.http.HttpMethod.POST,
+                                "/v1/admin/people/invitations/activate")
+                        .permitAll()
+                        .requestMatchers(
+                                org.springframework.http.HttpMethod.POST,
+                                "/v1/admin/people/invitations/confirm")
+                        .permitAll()
+
+                        .requestMatchers(ADMIN_ONLY_URLS).hasRole("ADMIN")
+
+                        // Organization-scoped administration.
                         .requestMatchers("/v1/admin", "/v1/admin/**")
-                                .hasAnyRole("ADMIN", "INSTITUTION_ADMIN", "PROVIDER_ADMIN")
-                        .requestMatchers("/v1/platform-admin", "/v1/platform-admin/**").hasRole("ADMIN")
-                        // §RO-07: provider financial namespace fence mirroring the class-level
-                        // @PreAuthorize of the provider controllers. The institution scope inside
-                        // those controllers is derived from the authenticated principal, never
-                        // from a client-supplied header, so the fence only decides who may knock:
-                        // every denial below is a role denial, and scope denials happen in the
-                        // controller after membership is re-checked.
+                        .hasAnyRole(
+                                "ADMIN", "INSTITUTION_ADMIN", "PROVIDER_ADMIN")
+
+                        .requestMatchers(
+                                "/v1/platform-admin",
+                                "/v1/platform-admin/**")
+                        .hasRole("ADMIN")
+
                         .requestMatchers("/v1/provider", "/v1/provider/**")
-                                .hasAnyRole("ADMIN", "INSTITUTION_ADMIN", "PROVIDER_ADMIN", "PROVIDER_STAFF")
-                        // The payment detail API is not exposed; deny explicitly so
-                        // cross-institution probing gets 403 instead of a 404 oracle.
-                        .requestMatchers("/v1/payments", "/v1/payments/**").denyAll()
-                        // Object-level fences mirroring the controllers' @PreAuthorize role
-                        // sets; running before @PathVariable/@Valid argument resolution
-                        // keeps denials from being masked by 400/500 argument errors.
-                        // Teacher-owned /me/** DELETEs (cancel own class, remove own
-                        // announcement) mirror their controllers' hasRole('TEACHER') and
-                        // must be matched before the admin-only fence below, which covers
-                        // teacher records / qualifications / assignments.
-                        .requestMatchers(org.springframework.http.HttpMethod.DELETE, "/v1/teachers/me/**")
-                            .hasRole("TEACHER")
-                        .requestMatchers(org.springframework.http.HttpMethod.DELETE, "/v1/teachers/**")
-                            .hasAnyRole("ADMIN", "INSTITUTION_ADMIN")
-                        .requestMatchers(org.springframework.http.HttpMethod.PUT, "/v1/students/**")
-                            .hasAnyRole("ADMIN", "INSTITUTION_ADMIN")
+                        .hasAnyRole(
+                                "ADMIN",
+                                "INSTITUTION_ADMIN",
+                                "PROVIDER_ADMIN",
+                                "PROVIDER_STAFF")
+
+                        // Payment detail endpoints remain explicitly denied.
+                        .requestMatchers("/v1/payments", "/v1/payments/**")
+                        .denyAll()
+
+                        .requestMatchers(
+                                org.springframework.http.HttpMethod.DELETE,
+                                "/v1/teachers/me/**")
+                        .hasRole("TEACHER")
+
+                        .requestMatchers(
+                                org.springframework.http.HttpMethod.DELETE,
+                                "/v1/teachers/**")
+                        .hasAnyRole("ADMIN", "INSTITUTION_ADMIN")
+
+                        .requestMatchers(
+                                org.springframework.http.HttpMethod.PUT,
+                                "/v1/students/**")
+                        .hasAnyRole("ADMIN", "INSTITUTION_ADMIN")
+
                         .anyRequest().authenticated()
                 )
-                .addFilterBefore(authRateLimitFilter(clientIpResolver), UsernamePasswordAuthenticationFilter.class)
-                .addFilterBefore(jwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)
-                .addFilterBefore(organizationContextResolver(), UsernamePasswordAuthenticationFilter.class)
-                .addFilterBefore(jwtRequestAttributeFilter(), UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(
+                        authRateLimitFilter(clientIpResolver),
+                        UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(
+                        jwtAuthenticationFilter(),
+                        UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(
+                        organizationContextResolver(),
+                        UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(
+                        jwtRequestAttributeFilter(),
+                        UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
@@ -248,10 +276,8 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        // Explicit allowlist only (§audit): every localhost dev port the Next.js
-        // server actually runs on, mirrored across 127.0.0.1, plus the Vite dev
-        // port and the production domains. No open localhost:* pattern — any
-        // local process binding an arbitrary port must not be a trusted origin.
+
+        // Explicit allowlist for local development and deployed frontends.
         config.setAllowedOrigins(List.of(
                 "http://localhost:3000",
                 "http://localhost:3001",
@@ -265,15 +291,19 @@ public class SecurityConfig {
                 "http://127.0.0.1:3003",
                 "http://localhost:5173",
                 "https://elmkusoma.com",
-                "https://www.elmkusoma.com"
+                "https://www.elmkusoma.com",
+                "https://elmkusoma20-one.vercel.app"
         ));
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
+
+        config.setAllowedMethods(List.of(
+                "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
         config.setExposedHeaders(List.of("Authorization", "X-Total-Count"));
         config.setMaxAge(3600L);
 
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        UrlBasedCorsConfigurationSource source =
+                new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
         return source;
     }
@@ -284,8 +314,9 @@ public class SecurityConfig {
     }
 
     @Bean
-    public AuthenticationManager authenticationManager(DaoAuthenticationProvider daoAuthenticationProvider) {
-        return new ProviderManager(List.of(daoAuthenticationProvider));
+    public AuthenticationManager authenticationManager(
+            DaoAuthenticationProvider daoAuthenticationProvider) {
+        return new org.springframework.security.authentication.ProviderManager(
+                List.of(daoAuthenticationProvider));
     }
-
 }
