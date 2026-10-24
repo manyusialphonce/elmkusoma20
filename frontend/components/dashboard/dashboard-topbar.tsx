@@ -377,3 +377,4 @@ export function DashboardTopbar({ renderSidebar }: { renderSidebar?: (onNavigate
     </>
   )
 }
+
