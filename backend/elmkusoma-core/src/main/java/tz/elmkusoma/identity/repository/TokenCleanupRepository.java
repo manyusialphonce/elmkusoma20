@@ -1,3 +1,4 @@
+
 package tz.elmkusoma.identity.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -7,6 +8,7 @@ import org.springframework.stereotype.Repository;
 import tz.elmkusoma.identity.domain.PasswordResetToken;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 /**
  * Bulk purge for consumed/expired single-use security artifacts.
@@ -17,21 +19,34 @@ import java.time.LocalDateTime;
  * here.
  */
 @Repository
-public interface TokenCleanupRepository extends JpaRepository<PasswordResetToken, java.util.UUID> {
+public interface TokenCleanupRepository
+        extends JpaRepository<PasswordResetToken, UUID> {
 
     @Modifying
-    @Query("DELETE FROM PasswordResetToken t WHERE t.used = true OR t.expiresAt < :cutoff")
-    long deleteUsedOrExpiredResetTokens(LocalDateTime cutoff);
+    @Query("""
+            DELETE FROM PasswordResetToken t
+            WHERE t.used = true OR t.expiresAt < :cutoff
+            """)
+    int deleteUsedOrExpiredResetTokens(LocalDateTime cutoff);
 
     @Modifying
-    @Query("DELETE FROM EmailVerificationToken t WHERE t.used = true OR t.expiresAt < :cutoff")
-    long deleteUsedOrExpiredEmailTokens(LocalDateTime cutoff);
+    @Query("""
+            DELETE FROM EmailVerificationToken t
+            WHERE t.used = true OR t.expiresAt < :cutoff
+            """)
+    int deleteUsedOrExpiredEmailTokens(LocalDateTime cutoff);
 
     @Modifying
-    @Query("DELETE FROM VerificationCode t WHERE t.used = true OR t.expiresAt < :cutoff")
-    long deleteUsedOrExpiredCodes(LocalDateTime cutoff);
+    @Query("""
+            DELETE FROM VerificationCode t
+            WHERE t.used = true OR t.expiresAt < :cutoff
+            """)
+    int deleteUsedOrExpiredCodes(LocalDateTime cutoff);
 
     @Modifying
-    @Query("DELETE FROM RevokedToken t WHERE t.expiresAt < :now")
-    long deleteExpiredRevocations(LocalDateTime now);
+    @Query("""
+            DELETE FROM RevokedToken t
+            WHERE t.expiresAt < :now
+            """)
+    int deleteExpiredRevocations(LocalDateTime now);
 }
