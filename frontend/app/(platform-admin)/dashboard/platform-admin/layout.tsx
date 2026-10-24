@@ -29,7 +29,8 @@ export default function PlatformAdminLayout({ children }: { children: ReactNode 
     <AuthGuard>
       <LowBandwidthProvider>
         <div className="flex min-h-dvh bg-muted/40">
-          <aside className="fixed inset-y-0 left-0 hidden w-64 border-r border-border lg:block">
+          <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 border-r border-border bg-card lg:block">
+
             <PlatformAdminSidebar />
           </aside>
           <div className="flex min-w-0 flex-1 flex-col lg:pl-64">
