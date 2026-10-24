@@ -358,7 +358,9 @@ export function DashboardTopbar({ renderSidebar }: { renderSidebar?: (onNavigate
       {open && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div className="absolute inset-0 bg-foreground/40" onClick={() => setOpen(false)} />
-          <div className="absolute inset-y-0 left-0 w-72 border-r border-border shadow-xl">
+         
+<div className="absolute inset-y-0 left-0 z-10 w-72 max-w-[calc(100vw-2rem)] overflow-hidden border-r border-border bg-card shadow-xl">
+
             <Button
               variant="ghost"
               size="icon"
