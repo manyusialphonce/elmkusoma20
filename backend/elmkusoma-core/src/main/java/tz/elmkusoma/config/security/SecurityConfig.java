@@ -1,5 +1,6 @@
 package tz.elmkusoma.config.security;
 
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
@@ -21,7 +22,6 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import jakarta.persistence.EntityManager;
 import tz.elmkusoma.shared.repository.InstitutionMembershipRepository;
 import tz.elmkusoma.shared.repository.UserRepository;
 
@@ -65,13 +65,19 @@ public class SecurityConfig {
     @Bean
     public JwtAuthenticationFilter jwtAuthenticationFilter() {
         return new JwtAuthenticationFilter(
-                jwtTokenProvider, userDetailsService(), userRepository);
+                jwtTokenProvider,
+                userDetailsService(),
+                userRepository
+        );
     }
 
     @Bean
     public AuthRateLimitFilter authRateLimitFilter(
             ClientIpResolver clientIpResolver) {
-        return new AuthRateLimitFilter(rateLimitService, clientIpResolver);
+        return new AuthRateLimitFilter(
+                rateLimitService,
+                clientIpResolver
+        );
     }
 
     @Bean
@@ -87,7 +93,10 @@ public class SecurityConfig {
     @Bean
     public JwtRequestAttributeFilter jwtRequestAttributeFilter() {
         return new JwtRequestAttributeFilter(
-                jwtTokenProvider, userRepository, membershipRepository);
+                jwtTokenProvider,
+                userRepository,
+                membershipRepository
+        );
     }
 
     @Bean
@@ -98,13 +107,14 @@ public class SecurityConfig {
                 membershipRepository,
                 contextHolder,
                 entityManager,
-                permissionService);
+                permissionService
+        );
     }
 
     /**
-     * The resolver is already wired into the security chain.
-     * Disable separate servlet-container registration to prevent
-     * it from running before authentication.
+     * The resolver is already wired into the security chain via
+     * addFilterBefore. Disable standalone servlet-container registration
+     * so it does not execute before authentication.
      */
     @Bean
     public FilterRegistrationBean<OrganizationContextResolver>
@@ -126,7 +136,9 @@ public class SecurityConfig {
                             .orElseThrow(() ->
                                     new org.springframework.security.core.userdetails
                                             .UsernameNotFoundException(
-                                            "User not found with email: " + email));
+                                            "User not found with email: " + email
+                                    )
+                            );
 
             return org.springframework.security.core.userdetails.User.builder()
                     .username(user.getEmail())
@@ -161,8 +173,8 @@ public class SecurityConfig {
     }
 
     /**
-     * Register the correlation filter before the security chain so
-     * request IDs are available even for rejected requests.
+     * Register the correlation filter before the security chain so request
+     * IDs are available for rejected requests and authentication failures.
      */
     @Bean
     public FilterRegistrationBean<RequestCorrelationFilter>
@@ -193,82 +205,100 @@ public class SecurityConfig {
             throws Exception {
         http
                 .cors(cors ->
-                        cors.configurationSource(corsConfigurationSource()))
+                        cors.configurationSource(corsConfigurationSource())
+                )
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(
-                                SessionCreationPolicy.STATELESS))
+                                SessionCreationPolicy.STATELESS
+                        )
+                )
                 .authorizeHttpRequests(auth -> auth
-                        // Password changes require an authenticated caller.
+                        // Password change requires an authenticated caller.
+                        // Keep this rule before the public /v1/auth/** rule.
                         .requestMatchers(
                                 org.springframework.http.HttpMethod.POST,
-                                "/v1/auth/change-password")
-                        .authenticated()
+                                "/v1/auth/change-password"
+                        ).authenticated()
 
                         .requestMatchers(PUBLIC_URLS).permitAll()
 
-                        // Public invitation activation endpoints.
+                        // Invitation activation is public because the invited
+                        // recipient may not have an account or session yet.
                         .requestMatchers(
                                 org.springframework.http.HttpMethod.POST,
-                                "/v1/admin/people/invitations/activate")
-                        .permitAll()
+                                "/v1/admin/people/invitations/activate"
+                        ).permitAll()
+
                         .requestMatchers(
                                 org.springframework.http.HttpMethod.POST,
-                                "/v1/admin/people/invitations/confirm")
-                        .permitAll()
+                                "/v1/admin/people/invitations/confirm"
+                        ).permitAll()
 
                         .requestMatchers(ADMIN_ONLY_URLS).hasRole("ADMIN")
 
                         // Organization-scoped administration.
                         .requestMatchers("/v1/admin", "/v1/admin/**")
                         .hasAnyRole(
-                                "ADMIN", "INSTITUTION_ADMIN", "PROVIDER_ADMIN")
+                                "ADMIN",
+                                "INSTITUTION_ADMIN",
+                                "PROVIDER_ADMIN"
+                        )
 
+                        // Platform governance is restricted to ADMIN.
                         .requestMatchers(
                                 "/v1/platform-admin",
-                                "/v1/platform-admin/**")
-                        .hasRole("ADMIN")
+                                "/v1/platform-admin/**"
+                        ).hasRole("ADMIN")
 
+                        // Provider namespace role fence.
                         .requestMatchers("/v1/provider", "/v1/provider/**")
                         .hasAnyRole(
                                 "ADMIN",
                                 "INSTITUTION_ADMIN",
                                 "PROVIDER_ADMIN",
-                                "PROVIDER_STAFF")
+                                "PROVIDER_STAFF"
+                        )
 
-                        // Payment detail endpoints remain explicitly denied.
+                        // Payment detail endpoints are explicitly denied.
                         .requestMatchers("/v1/payments", "/v1/payments/**")
                         .denyAll()
 
+                        // Teacher-owned DELETE endpoints.
                         .requestMatchers(
                                 org.springframework.http.HttpMethod.DELETE,
-                                "/v1/teachers/me/**")
-                        .hasRole("TEACHER")
+                                "/v1/teachers/me/**"
+                        ).hasRole("TEACHER")
 
+                        // Teacher records, qualifications and assignments.
                         .requestMatchers(
                                 org.springframework.http.HttpMethod.DELETE,
-                                "/v1/teachers/**")
-                        .hasAnyRole("ADMIN", "INSTITUTION_ADMIN")
+                                "/v1/teachers/**"
+                        ).hasAnyRole("ADMIN", "INSTITUTION_ADMIN")
 
                         .requestMatchers(
                                 org.springframework.http.HttpMethod.PUT,
-                                "/v1/students/**")
-                        .hasAnyRole("ADMIN", "INSTITUTION_ADMIN")
+                                "/v1/students/**"
+                        ).hasAnyRole("ADMIN", "INSTITUTION_ADMIN")
 
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(
                         authRateLimitFilter(clientIpResolver),
-                        UsernamePasswordAuthenticationFilter.class)
+                        UsernamePasswordAuthenticationFilter.class
+                )
                 .addFilterBefore(
                         jwtAuthenticationFilter(),
-                        UsernamePasswordAuthenticationFilter.class)
+                        UsernamePasswordAuthenticationFilter.class
+                )
                 .addFilterBefore(
                         organizationContextResolver(),
-                        UsernamePasswordAuthenticationFilter.class)
+                        UsernamePasswordAuthenticationFilter.class
+                )
                 .addFilterBefore(
                         jwtRequestAttributeFilter(),
-                        UsernamePasswordAuthenticationFilter.class);
+                        UsernamePasswordAuthenticationFilter.class
+                );
 
         return http.build();
     }
@@ -277,7 +307,11 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
-        // Explicit allowlist for local development and deployed frontends.
+        /*
+         * Explicit origin allowlist.
+         * Includes local development origins, the production domains,
+         * and the currently deployed Vercel frontend.
+         */
         config.setAllowedOrigins(List.of(
                 "http://localhost:3000",
                 "http://localhost:3001",
@@ -296,15 +330,26 @@ public class SecurityConfig {
         ));
 
         config.setAllowedMethods(List.of(
-                "GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
+                "GET",
+                "POST",
+                "PUT",
+                "DELETE",
+                "PATCH",
+                "OPTIONS"
+        ));
+
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
-        config.setExposedHeaders(List.of("Authorization", "X-Total-Count"));
+        config.setExposedHeaders(List.of(
+                "Authorization",
+                "X-Total-Count"
+        ));
         config.setMaxAge(3600L);
 
         UrlBasedCorsConfigurationSource source =
                 new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
+
         return source;
     }
 
@@ -316,7 +361,8 @@ public class SecurityConfig {
     @Bean
     public AuthenticationManager authenticationManager(
             DaoAuthenticationProvider daoAuthenticationProvider) {
-        return new org.springframework.security.authentication.ProviderManager(
-                List.of(daoAuthenticationProvider));
+        return new ProviderManager(
+                List.of(daoAuthenticationProvider)
+        );
     }
 }
