@@ -897,6 +897,24 @@ export interface RefundRequestSummary {
   createdAt: string
 }
 
+/** Publication-governance view of one live class (GET /v1/platform-admin/live-classes/governance). */
+export interface LiveClassGovernanceRecord {
+  id: string
+  title: string
+  status: string
+  publicationStatus: string
+  accessLevel: string | null
+  scheduledAt: string | null
+  teacherId: string | null
+  institutionId: string | null
+  submittedForReviewAt: string | null
+  publishedAt: string | null
+  reviewedBy: string | null
+  reviewedAt: string | null
+  reviewNote: string | null
+  publiclyDiscoverable: boolean
+}
+
 export const platformAdminApi = {
   getDashboard: () => platformFetch<PlatformDashboard>("/v1/platform-admin/dashboard"),
   getAttention: () => platformFetch<AttentionItem[]>("/v1/platform-admin/attention"),
@@ -986,6 +1004,30 @@ export const platformAdminApi = {
     if (status) params.set("status", status)
     return platformFetch<PageResponse<LiveClassSummary>>(`/v1/platform-admin/live-classes?${params}`)
   },
+
+  /** Publication review queue. Platform Admin only; backend enforces ADMIN on every route. */
+  listLiveClassReviews: (page = 0, size = 20, publicationStatus?: string) => {
+    const params = new URLSearchParams({ page: String(page), size: String(size) })
+    if (publicationStatus) params.set("publicationStatus", publicationStatus)
+    return platformFetch<PageResponse<LiveClassGovernanceRecord>>(`/v1/platform-admin/live-classes/governance?${params}`)
+  },
+
+  approveLiveClass: (id: string, note?: string) =>
+    platformFetch<LiveClassGovernanceRecord>(`/v1/platform-admin/live-classes/governance/${id}/approve`, {
+      method: "POST",
+      body: JSON.stringify({ note: note ?? null }),
+    }),
+
+  rejectLiveClass: (id: string, note: string) =>
+    platformFetch<LiveClassGovernanceRecord>(`/v1/platform-admin/live-classes/governance/${id}/reject`, {
+      method: "POST",
+      body: JSON.stringify({ note }),
+    }),
+
+  publishLiveClass: (id: string) =>
+    platformFetch<LiveClassGovernanceRecord>(`/v1/platform-admin/live-classes/governance/${id}/publish`, {
+      method: "POST",
+    }),
 
   listPayments: (page = 0, size = 20, status?: string) => {
     const params = new URLSearchParams({ page: String(page), size: String(size) })

@@ -24,6 +24,8 @@ public class LiveClassResponse {
     private String accessLevel;
     /** Editorial publication state (DRAFT / PENDING_APPROVAL / APPROVED / PUBLISHED / REJECTED). */
     private String publicationStatus;
+    /** Platform Admin note for the last review decision; shown to the owning teacher (e.g. the rejection reason). */
+    private String reviewNote;
     private Integer maxParticipants;
     private String subjectName;
     private String teacherName;

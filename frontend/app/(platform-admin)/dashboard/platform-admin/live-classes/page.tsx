@@ -7,6 +7,7 @@ import { Video, Loader2, Clock, Users } from "lucide-react"
 import { platformAdminApi, type LiveClassSummary, type PageResponse } from "@/lib/platform-admin-api"
 import { formatDateTime as fmtDateTime } from "@/lib/format-date"
 import { useLocale } from "@/hooks/use-locale"
+import { LiveClassReviewQueue } from "@/components/platform-admin/live-class-review-queue"
 
 const STATUS_OPTIONS = ["", "SCHEDULED", "LIVE", "COMPLETED", "CANCELLED"]
 const PAGE_SIZE = 20
@@ -62,6 +63,8 @@ export default function LiveClassesMonitorPage() {
         <h1 className="text-2xl font-bold tracking-tight text-foreground">{t("liveClasses.liveClassesMonitor")}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t("liveClasses.monitorAllLiveClasses")}</p>
       </div>
+
+      <LiveClassReviewQueue />
 
       <div className="flex items-center gap-3">
         <select

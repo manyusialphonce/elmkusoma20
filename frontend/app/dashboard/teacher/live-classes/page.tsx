@@ -26,6 +26,8 @@ interface LiveClass {
   accessLevel?: string
   /** Editorial state (DRAFT/PENDING_APPROVAL/APPROVED/PUBLISHED/...). */
   publicationStatus?: string
+  /** Platform Admin note; shown to the teacher when a class is rejected. */
+  reviewNote?: string | null
   createdAt: string
   recordingEnabled: boolean | null
   recordingUrl: string | null
@@ -34,6 +36,8 @@ interface LiveClass {
   lessonId: string | null
   lessonTitle: string | null
 }
+
+const PUBLICATION_STATUSES = ["DRAFT", "PENDING_APPROVAL", "APPROVED", "PUBLISHED", "REJECTED"]
 
 interface ClassOption {
   classGroupId: string
@@ -328,6 +332,18 @@ export default function TeacherLiveClassesPage() {
       setTimeout(() => setSuccess(null), 3000)
     } catch (err) {
       setError(err instanceof Error ? err.message : t("liveClasses.cancelError"))
+    }
+  }
+
+  async function handleSubmitForReview(id: string) {
+    try {
+      setError(null)
+      await appFetch(`/v1/teachers/me/live-classes/${id}/submit-for-approval`, { method: "POST" })
+      setSuccess(t("liveClasses.submittedForReview"))
+      setTimeout(() => setSuccess(null), 3000)
+      loadData()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("liveClasses.submitError"))
     }
   }
 
@@ -881,6 +897,26 @@ export default function TeacherLiveClassesPage() {
                   <div className="flex items-center gap-1 shrink-0">
                     {lc.status === "SCHEDULED" && (
                       <>
+                        {lc.publicationStatus && (
+                          <span className="self-center text-xs text-muted-foreground">
+                            {PUBLICATION_STATUSES.includes(lc.publicationStatus)
+                              ? t(`liveClasses.pubStatus.${lc.publicationStatus}`)
+                              : lc.publicationStatus}
+                            {lc.publicationStatus === "REJECTED" && lc.reviewNote
+                              ? ` · ${t("liveClasses.rejectedNote", { p0: lc.reviewNote })}`
+                              : null}
+                          </span>
+                        )}
+                        {(lc.publicationStatus === "DRAFT" || lc.publicationStatus === "REJECTED") && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1"
+                            onClick={() => handleSubmitForReview(lc.id)}
+                          >
+                            {t("liveClasses.submitForReview")}
+                          </Button>
+                        )}
                         <Button
                           size="sm"
                           variant="outline"
