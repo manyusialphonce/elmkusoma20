@@ -1100,6 +1100,7 @@ public class LiveClassServiceImpl implements LiveClassService {
                 .status(liveClass.getStatus())
                 .accessLevel(liveClass.getAccessLevel())
                 .publicationStatus(liveClass.getPublicationStatus())
+                .reviewNote(liveClass.getReviewNote())
                 .maxParticipants(liveClass.getMaxParticipants())
                 .subjectName(subjectName)
                 .teacherName(teacherName)
