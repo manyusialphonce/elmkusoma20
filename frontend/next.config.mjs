@@ -21,6 +21,14 @@ const nextConfig = {
     const apiUrl =
       process.env.BACKEND_URL || "http://localhost:8080";
 
+    // Rewrite destinations are baked in at BUILD time. On Vercel, a missing BACKEND_URL silently
+    // proxies /v1/* to localhost, which is unreachable from Vercel's edge.
+    if (process.env.VERCEL && !process.env.BACKEND_URL) {
+      console.warn(
+        "[next.config] BACKEND_URL is not set for this Vercel build; /v1/* rewrites will target localhost:8080 and fail. Set BACKEND_URL to the Render backend origin and redeploy.",
+      );
+    }
+
     const mediaUrl =
       process.env.MEDIA_URL || "http://localhost:8083";
 

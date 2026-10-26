@@ -2221,11 +2221,6 @@ export const assignmentCreateApi = {
     }),
 }
 
-export const liveClassApi = {
-  getByTeacher: (teacherId: string) =>
-    request<LiveClass[]>(`/v1/teachers/${teacherId}/live-classes`),
-}
-
 export const attendanceApi = {
   getByClassAndDate: (classGroupId: string, date: string) =>
     request<unknown[]>(`/v1/attendance?classGroupId=${classGroupId}&date=${date}`),
